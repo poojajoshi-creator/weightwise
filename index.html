@@ -101,6 +101,116 @@ function skipMigrate(){
   g('migrate-overlay').classList.remove('on');
 }
 
+
+/* ===================== THE USUAL ===================== */
+// Berry yogurt: Greek yogurt parfait from breakfast options
+// Chai: Indian chai 3 cups = 75*3=225 cal, 3.9*3=11.7g protein
+// Smoothie: our smoothie entry
+// Edamame: Biena 1/4 cup = 65 cal, 6.5g protein (x2 for 1/2 cup)
+
+var THE_USUAL = {
+  bf: [
+    {name:'Oats banana yogurt chia walnut bowl', cal:399, prot:19},
+    {name:'Indian chai (full fat milk 50/50, no sugar) x3 cups', cal:225, prot:11.7}
+  ],
+  lu: [
+    {name:'Smoothie (protein, berries, spinach, milk) x1 large glass', cal:185, prot:17}
+  ],
+  sn: [
+    {name:'Biena Himalayan Pink Salt Edamame 1/2 cup', cal:130, prot:13}
+  ]
+};
+
+function applyUsual(){
+  var log = getLog(activeDay);
+  if(!log.slots) log.slots = {};
+
+  // Check if already applied
+  var alreadyApplied = false;
+  for(var slot in THE_USUAL){
+    var items = log.slots[slot] || [];
+    if(items.length > 0){
+      // Check if usual items already exist
+      var usualNames = THE_USUAL[slot].map(function(u){ return u.name; });
+      var hasUsual = items.some(function(item){
+        return usualNames.some(function(n){ return item.name === n; });
+      });
+      if(hasUsual){ alreadyApplied = true; break; }
+    }
+  }
+
+  if(alreadyApplied){
+    if(!confirm('Some usual items are already logged for today. Add again?')) return;
+  }
+
+  // Add usual items to each slot (append, don't replace)
+  for(var slot in THE_USUAL){
+    if(!log.slots[slot]) log.slots[slot] = [];
+    THE_USUAL[slot].forEach(function(item){
+      log.slots[slot].push({name:item.name, cal:item.cal, prot:item.prot});
+    });
+  }
+
+  save();
+  renderAll();
+
+  // Update button state
+  var btn = g('usual-btn');
+  var undo = g('usual-undo');
+  if(btn){ btn.textContent = '✓ Applied'; btn.classList.add('done'); }
+  if(undo){ undo.style.display = 'block'; }
+}
+
+function undoUsual(){
+  var log = getLog(activeDay);
+  if(!log.slots) return;
+
+  // Remove all items that match usual names
+  var allUsualNames = [];
+  for(var slot in THE_USUAL){
+    THE_USUAL[slot].forEach(function(u){ allUsualNames.push(u.name); });
+  }
+
+  for(var slot in log.slots){
+    log.slots[slot] = (log.slots[slot] || []).filter(function(item){
+      return allUsualNames.indexOf(item.name) === -1;
+    });
+  }
+
+  save();
+  renderAll();
+
+  var btn = g('usual-btn');
+  var undo = g('usual-undo');
+  if(btn){ btn.textContent = 'Apply'; btn.classList.remove('done'); }
+  if(undo){ undo.style.display = 'none'; }
+}
+
+function updateUsualBtn(){
+  // Check if usual already applied for this day
+  var log = getLog(activeDay);
+  var btn = g('usual-btn');
+  var undo = g('usual-undo');
+  if(!btn || !undo) return;
+
+  var applied = false;
+  for(var slot in THE_USUAL){
+    var items = log.slots && log.slots[slot] ? log.slots[slot] : [];
+    var usualNames = THE_USUAL[slot].map(function(u){ return u.name; });
+    if(items.some(function(item){ return usualNames.some(function(n){ return item.name === n; }); })){
+      applied = true; break;
+    }
+  }
+
+  if(applied){
+    btn.textContent = '✓ Applied'; btn.classList.add('done');
+    undo.style.display = 'block';
+  } else {
+    btn.textContent = 'Apply'; btn.classList.remove('done');
+    undo.style.display = 'none';
+  }
+}
+
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>WeightWise</title>
@@ -251,6 +361,17 @@ input{outline:none}
 .fp-manual-row input:focus{border-color:#176b3f}
 .fp-manual-btn{background:#176b3f;color:#fff;border:none;border-radius:7px;padding:8px 13px;font-weight:bold}
 .fp-close-btn{float:right;background:none;border:none;color:#aaa;font-size:19px;line-height:1;margin-top:-2px}
+
+
+/* The Usual */
+.usual-bar{background:linear-gradient(135deg,#e8f5ee,#f0fff6);border:1.5px solid #a8e6cc;border-radius:11px;padding:12px 15px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.usual-info{flex:1}
+.usual-info b{font-size:14px;color:#176b3f;display:block}
+.usual-info small{font-size:11px;color:#888;margin-top:2px;display:block;line-height:1.5}
+.usual-btn{background:#176b3f;color:#fff;border:none;border-radius:9px;padding:10px 16px;font-size:13px;font-weight:bold;white-space:nowrap;flex-shrink:0}
+.usual-btn:hover{background:#125530}
+.usual-btn.done{background:#888}
+.usual-undo{background:none;border:1px solid #ccc;border-radius:7px;padding:5px 10px;font-size:11px;color:#888;margin-top:6px;display:none}
 
 /* Exercise */
 .ex-row{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;gap:9px;cursor:pointer}
@@ -453,6 +574,16 @@ input{outline:none}
       <div class="stat"><div class="lbl">Net</div><div class="val" id="s-net" style="color:#888">0</div><div class="sub">target 1600</div></div>
     </div>
 
+      <div class="usual-bar" id="usual-bar">
+        <div class="usual-info">
+          <b>⭐ The Usual</b>
+          <small>Berry yogurt (bf) &bull; 3 cups chai (bf) &bull; Smoothie (lunch) &bull; Edamame 1/2 cup (snack)</small>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <button class="usual-btn" id="usual-btn" onclick="applyUsual()">Apply</button>
+          <button class="usual-undo" id="usual-undo" onclick="undoUsual()">Undo</button>
+        </div>
+      </div>
     <div class="card">
       <h2>🥗 Meals</h2>
       <div id="mlist"></div>
@@ -649,6 +780,7 @@ var FDB = [
   {n:'Tofu (firm)',           cal:76,  pro:8,   qty:100, unit:'g'},
   {n:'Tofu (silken)',         cal:55,  pro:5,   qty:100, unit:'g'},
   {n:'Tempeh',                cal:193, pro:19,  qty:100, unit:'g'},
+  {n:'Impossible Burger patty', cal:240, pro:19,  qty:1,   unit:'patty (4oz)'},
   {n:'Lentils (cooked)',      cal:116, pro:9,   qty:100, unit:'g'},
   {n:'Arhar Dal / Toor Dal (ghee tempered)', cal:365, pro:23,  qty:1,   unit:'big bowl'},
   {n:'Chana Dal with Lauki / Bottle Gourd (ghee tempered)', cal:417, pro:20,  qty:1,   unit:'big bowl'},
@@ -674,6 +806,7 @@ var FDB = [
   {n:'White rice (cooked)',   cal:206, pro:4.3, qty:186, unit:'g (1 cup)'},
   {n:'Quinoa (cooked)',       cal:222, pro:8.1, qty:185, unit:'g (1 cup)'},
   {n:'Whole wheat bread',     cal:69,  pro:3.6, qty:28,  unit:'g (1 slice)'},
+  {n:'Panera Everything Bagel half with butter', cal:170, pro:5, qty:1, unit:'half bagel'},
   {n:'Whole wheat roti',      cal:71,  pro:2.4, qty:28,  unit:'g (1 roti)'},
   {n:'Roti with ghee',         cal:97,  pro:2.5, qty:1,   unit:'roti'},
   {n:'Stacy Simply Naked Pita Chips (small bag)', cal:170, pro:4,   qty:1,   unit:'bag (1.25oz)'},
@@ -951,7 +1084,7 @@ function gTab(t){
 }
 
 /* ===================== RENDER ===================== */
-function renderAll(){ renderHeader(); renderToday(); renderVitamins(); updateDateNav(); renderSleepHistory(); }
+function renderAll(){ renderHeader(); renderToday(); renderVitamins(); updateDateNav(); renderSleepHistory(); updateUsualBtn(); }
 
 function renderHeader(){
   var k=dk(0), wk=S.sd?wkNum(S.sd,k):1, ph=PHASES[phIdx(wk)];
@@ -1682,6 +1815,116 @@ function doMigrate(){
 function skipMigrate(){
   localStorage.setItem('ww8_migrated', '1'); // don't ask again
   g('migrate-overlay').classList.remove('on');
+}
+
+
+/* ===================== THE USUAL ===================== */
+// Berry yogurt: Greek yogurt parfait from breakfast options
+// Chai: Indian chai 3 cups = 75*3=225 cal, 3.9*3=11.7g protein
+// Smoothie: our smoothie entry
+// Edamame: Biena 1/4 cup = 65 cal, 6.5g protein (x2 for 1/2 cup)
+
+var THE_USUAL = {
+  bf: [
+    {name:'Oats banana yogurt chia walnut bowl', cal:399, prot:19},
+    {name:'Indian chai (full fat milk 50/50, no sugar) x3 cups', cal:225, prot:11.7}
+  ],
+  lu: [
+    {name:'Smoothie (protein, berries, spinach, milk) x1 large glass', cal:185, prot:17}
+  ],
+  sn: [
+    {name:'Biena Himalayan Pink Salt Edamame 1/2 cup', cal:130, prot:13}
+  ]
+};
+
+function applyUsual(){
+  var log = getLog(activeDay);
+  if(!log.slots) log.slots = {};
+
+  // Check if already applied
+  var alreadyApplied = false;
+  for(var slot in THE_USUAL){
+    var items = log.slots[slot] || [];
+    if(items.length > 0){
+      // Check if usual items already exist
+      var usualNames = THE_USUAL[slot].map(function(u){ return u.name; });
+      var hasUsual = items.some(function(item){
+        return usualNames.some(function(n){ return item.name === n; });
+      });
+      if(hasUsual){ alreadyApplied = true; break; }
+    }
+  }
+
+  if(alreadyApplied){
+    if(!confirm('Some usual items are already logged for today. Add again?')) return;
+  }
+
+  // Add usual items to each slot (append, don't replace)
+  for(var slot in THE_USUAL){
+    if(!log.slots[slot]) log.slots[slot] = [];
+    THE_USUAL[slot].forEach(function(item){
+      log.slots[slot].push({name:item.name, cal:item.cal, prot:item.prot});
+    });
+  }
+
+  save();
+  renderAll();
+
+  // Update button state
+  var btn = g('usual-btn');
+  var undo = g('usual-undo');
+  if(btn){ btn.textContent = '✓ Applied'; btn.classList.add('done'); }
+  if(undo){ undo.style.display = 'block'; }
+}
+
+function undoUsual(){
+  var log = getLog(activeDay);
+  if(!log.slots) return;
+
+  // Remove all items that match usual names
+  var allUsualNames = [];
+  for(var slot in THE_USUAL){
+    THE_USUAL[slot].forEach(function(u){ allUsualNames.push(u.name); });
+  }
+
+  for(var slot in log.slots){
+    log.slots[slot] = (log.slots[slot] || []).filter(function(item){
+      return allUsualNames.indexOf(item.name) === -1;
+    });
+  }
+
+  save();
+  renderAll();
+
+  var btn = g('usual-btn');
+  var undo = g('usual-undo');
+  if(btn){ btn.textContent = 'Apply'; btn.classList.remove('done'); }
+  if(undo){ undo.style.display = 'none'; }
+}
+
+function updateUsualBtn(){
+  // Check if usual already applied for this day
+  var log = getLog(activeDay);
+  var btn = g('usual-btn');
+  var undo = g('usual-undo');
+  if(!btn || !undo) return;
+
+  var applied = false;
+  for(var slot in THE_USUAL){
+    var items = log.slots && log.slots[slot] ? log.slots[slot] : [];
+    var usualNames = THE_USUAL[slot].map(function(u){ return u.name; });
+    if(items.some(function(item){ return usualNames.some(function(n){ return item.name === n; }); })){
+      applied = true; break;
+    }
+  }
+
+  if(applied){
+    btn.textContent = '✓ Applied'; btn.classList.add('done');
+    undo.style.display = 'block';
+  } else {
+    btn.textContent = 'Apply'; btn.classList.remove('done');
+    undo.style.display = 'none';
+  }
 }
 
 </script>
