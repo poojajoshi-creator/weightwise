@@ -212,8 +212,16 @@ function updateUsualBtn(){
 }
 
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>WeightWise</title>
+
+<!-- iOS PWA: full-screen, home screen icon, app name -->
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="WeightWise"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#176b3f"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;background:#f0f4f8;color:#222;font-size:15px;min-height:100vh}
@@ -475,6 +483,20 @@ input{outline:none}
 .sync-bar.on{display:flex}
 .signout-btn{background:none;border:1px solid #b2dfc4;border-radius:6px;padding:3px 10px;font-size:11px;color:#176b3f;cursor:pointer}
 
+
+/* iOS PWA full-screen + safe area */
+body{
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+html{
+  overscroll-behavior: none;
+  height: 100%;
+}
 </style>
 </head>
 <body>
