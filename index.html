@@ -776,6 +776,7 @@ var FDB = [
   {n:'Almond milk (unsweetened)',cal:15,pro:0.6,qty:100, unit:'ml'},
   {n:'Paneer',                cal:265, pro:18,  qty:100, unit:'g'},
   {n:'Paneer grilled with bell pepper and onion', cal:190, pro:12,  qty:1,   unit:'cup'},
+  {n:'Grilled paneer pita (half pita buttered, 30g paneer, grilled veggies)', cal:236, pro:9, qty:1, unit:'pita'},
   {n:'Egg and Paneer (2 eggs, 100g paneer, grilled onion and red pepper)', cal:506, pro:32, qty:1, unit:'plate'},
   {n:'Tofu (firm)',           cal:76,  pro:8,   qty:100, unit:'g'},
   {n:'Tofu (silken)',         cal:55,  pro:5,   qty:100, unit:'g'},
@@ -810,6 +811,7 @@ var FDB = [
   {n:'Whole wheat roti',      cal:71,  pro:2.4, qty:28,  unit:'g (1 roti)'},
   {n:'Roti with ghee',         cal:97,  pro:2.5, qty:1,   unit:'roti'},
   {n:'Stacy Simply Naked Pita Chips (small bag)', cal:170, pro:4,   qty:1,   unit:'bag (1.25oz)'},
+  {n:'Dominos Thin Crust Pizza slice (olives, jalapeno)', cal:150, pro:6, qty:1, unit:'slice'},
   {n:'Topgolf Farmhouse Flatbread (3 slices)', cal:585, pro:18,  qty:1,   unit:'3 slices'},
   {n:'Topgolf Harvest Hummus pita veggie plate (half)', cal:600, pro:18,  qty:1,   unit:'half plate'},
   {n:'Pasta (cooked)',        cal:220, pro:8.1, qty:140, unit:'g (1 cup)'},
@@ -1229,82 +1231,154 @@ function closeFoodPanel(){
   fpSlot=null;
 }
 
+function buildFoodCard(name, cal100, prot100, sourceLabel){
+  // cal100/prot100 = values per 100g. For local FDB items these are pre-scaled.
+  var card=mk('div'); card.className='fp-result';
+
+  var hdr=mk('div'); hdr.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px';
+  var b=mk('b'); b.style.cssText='font-size:14px;flex:1;margin-right:8px'; b.textContent=name;
+  var src=mk('span'); src.style.cssText='font-size:10px;color:#aaa;white-space:nowrap;margin-top:2px'; src.textContent=sourceLabel||'';
+  hdr.appendChild(b); hdr.appendChild(src);
+  card.appendChild(hdr);
+
+  var qrow=mk('div'); qrow.className='fp-qty-row';
+  var ulbl=mk('span'); ulbl.className='ulbl'; ulbl.textContent='grams:';
+  var inp=mk('input'); inp.type='number'; inp.min='1'; inp.step='10'; inp.value='100';
+  var cspan=mk('span'); cspan.className='fp-cal';
+  var pspan=mk('span'); pspan.className='fp-prot';
+
+  function recalc(){
+    var g2=parseFloat(inp.value)||0;
+    var c=Math.round(cal100*g2/100);
+    var p=Math.round(prot100*g2/100*10)/10;
+    cspan.textContent=c+' cal';
+    pspan.textContent=' | '+p+'g protein';
+  }
+  inp.oninput=recalc; recalc();
+
+  var addbtn=mk('button'); addbtn.className='fp-add'; addbtn.textContent='Add';
+  addbtn.onclick=(function(n,i,c100,p100){
+    return function(){
+      var grams=parseFloat(i.value)||0;
+      var c=Math.round(c100*grams/100);
+      var p=Math.round(p100*grams/100*10)/10;
+      addFood(fpSlot, n+' '+grams+'g', c, p);
+    };
+  })(name, inp, cal100, prot100);
+
+  qrow.appendChild(ulbl); qrow.appendChild(inp);
+  qrow.appendChild(cspan); qrow.appendChild(pspan); qrow.appendChild(addbtn);
+  card.appendChild(qrow);
+  return card;
+}
+
+function buildLocalCard(food){
+  // Local FDB items have their own qty/unit system
+  var isCount = food.unit.indexOf('g')!==0 && food.unit.indexOf('ml')!==0;
+  var card=mk('div'); card.className='fp-result';
+
+  var hdr=mk('div'); hdr.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px';
+  var b=mk('b'); b.style.cssText='font-size:14px;flex:1;margin-right:8px'; b.textContent=food.n;
+  var src=mk('span'); src.style.cssText='font-size:10px;color:#176b3f;white-space:nowrap;margin-top:2px'; src.textContent='My foods';
+  hdr.appendChild(b); hdr.appendChild(src);
+  card.appendChild(hdr);
+
+  var qrow=mk('div'); qrow.className='fp-qty-row';
+  var ulbl=mk('span'); ulbl.className='ulbl'; ulbl.textContent=isCount?food.unit+':':'grams:';
+  var inp=mk('input'); inp.type='number'; inp.min='0.1'; inp.step=isCount?'1':'10'; inp.value=String(food.qty);
+  var cspan=mk('span'); cspan.className='fp-cal';
+  var pspan=mk('span'); pspan.className='fp-prot';
+
+  function recalc(){
+    var userVal=parseFloat(inp.value)||0;
+    var ratio=userVal/food.qty;
+    var c=Math.round(food.cal*ratio);
+    var p=Math.round(food.pro*ratio*10)/10;
+    cspan.textContent=c+' cal';
+    pspan.textContent=' | '+p+'g protein';
+  }
+  inp.oninput=recalc; recalc();
+
+  var addbtn=mk('button'); addbtn.className='fp-add'; addbtn.textContent='Add';
+  addbtn.onclick=(function(f,i,isC){
+    return function(){
+      var userVal=parseFloat(i.value)||0;
+      var ratio=userVal/f.qty;
+      var c=Math.round(f.cal*ratio);
+      var p=Math.round(f.pro*ratio*10)/10;
+      var label=f.n+(isC?' x'+userVal:' '+userVal+'g');
+      addFood(fpSlot,label,c,p);
+    };
+  })(food,inp,isCount);
+
+  qrow.appendChild(ulbl); qrow.appendChild(inp);
+  qrow.appendChild(cspan); qrow.appendChild(pspan); qrow.appendChild(addbtn);
+  card.appendChild(qrow);
+  return card;
+}
+
 function doSearch(){
-  var query=g('fp-search').value.trim().toLowerCase();
+  var query=g('fp-search').value.trim();
   if(!query) return;
   var res=g('fp-results');
   res.innerHTML='';
 
-  /* Strict: all words match */
-  var words=query.split(/\s+/).filter(function(w){ return w.length>0; });
-  var matches=FDB.filter(function(f){
+  var ql=query.toLowerCase();
+  var words=ql.split(/\s+/).filter(function(w){ return w.length>0; });
+
+  // --- Local DB search first ---
+  var localMatches=FDB.filter(function(f){
     return words.every(function(w){ return f.n.toLowerCase().indexOf(w)>=0; });
   });
-  /* Loose: any word matches */
-  if(matches.length===0){
-    matches=FDB.filter(function(f){
+  if(localMatches.length===0){
+    localMatches=FDB.filter(function(f){
       return words.some(function(w){ return w.length>2&&f.n.toLowerCase().indexOf(w)>=0; });
     });
   }
 
-  if(matches.length===0){
-    var msg=mk('div'); msg.className='fp-msg';
-    msg.textContent='No match found — try simpler words like "egg", "lentil", "tofu", or use manual entry.';
-    res.appendChild(msg);
-    return;
+  if(localMatches.length>0){
+    var note=mk('div'); note.style.cssText='font-size:11px;color:#aaa;margin-bottom:8px';
+    note.textContent='From your food list:';
+    res.appendChild(note);
+    localMatches.slice(0,4).forEach(function(food){ res.appendChild(buildLocalCard(food)); });
   }
 
-  var note=mk('div');
-  note.style.cssText='font-size:11px;color:#aaa;margin-bottom:8px';
-  note.textContent=matches.length+' result'+(matches.length>1?'s':'')+' — set quantity then click Add:';
-  res.appendChild(note);
+  // --- Open Food Facts API ---
+  var divider=mk('div'); divider.style.cssText='font-size:11px;color:#aaa;margin:10px 0 8px;display:flex;align-items:center;gap:8px';
+  var line1=mk('div'); line1.style.cssText='flex:1;height:1px;background:#eee';
+  var label=mk('span'); label.textContent='Searching food database...';
+  var line2=mk('div'); line2.style.cssText='flex:1;height:1px;background:#eee';
+  divider.appendChild(line1); divider.appendChild(label); divider.appendChild(line2);
+  res.appendChild(divider);
 
-  matches.slice(0,6).forEach(function(food){
-    var isCount = food.unit.indexOf('g')!==0 && food.unit.indexOf('ml')!==0;
+  var apiUrl='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(query)+'&search_simple=1&action=process&json=1&page_size=8&fields=product_name,nutriments,brands,serving_size';
 
-    var card=mk('div'); card.className='fp-result';
-    var b=mk('b'); b.textContent=food.n; card.appendChild(b);
+  fetch(apiUrl)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      label.textContent='From Open Food Facts:';
+      var products=(data.products||[]).filter(function(p){
+        return p.product_name &&
+               p.nutriments &&
+               p.nutriments['energy-kcal_100g'] > 0;
+      });
 
-    var qrow=mk('div'); qrow.className='fp-qty-row';
+      if(products.length===0){
+        label.textContent= localMatches.length>0 ? 'No additional results from food database' : 'No results found — try different keywords or enter manually below';
+        return;
+      }
 
-    var ulbl=mk('span'); ulbl.className='ulbl';
-    ulbl.textContent=isCount?food.unit+':':'grams:';
-
-    var inp=mk('input'); inp.type='number';
-    inp.min='0.1'; inp.step=isCount?'1':'10';
-    inp.value=isCount?String(food.qty):String(food.qty);
-
-    var cspan=mk('span'); cspan.className='fp-cal';
-    var pspan=mk('span'); pspan.className='fp-prot';
-
-    function recalc(){
-      var userVal=parseFloat(inp.value)||0;
-      var ratio=isCount?(userVal/food.qty):(userVal/food.qty);
-      var c=Math.round(food.cal*ratio);
-      var p=Math.round(food.pro*ratio*10)/10;
-      cspan.textContent=c+' cal';
-      pspan.textContent=' | '+p+'g protein';
-    }
-    inp.oninput=recalc;
-    recalc();
-
-    var addbtn=mk('button'); addbtn.className='fp-add'; addbtn.textContent='Add';
-    addbtn.onclick=(function(f,i,isC){
-      return function(){
-        var userVal=parseFloat(i.value)||0;
-        var ratio=userVal/f.qty;
-        var c=Math.round(f.cal*ratio);
-        var p=Math.round(f.pro*ratio*10)/10;
-        var label=f.n+(isC?' x'+userVal:' '+userVal+'g');
-        addFood(fpSlot,label,c,p);
-      };
-    })(food,inp,isCount);
-
-    qrow.appendChild(ulbl); qrow.appendChild(inp);
-    qrow.appendChild(cspan); qrow.appendChild(pspan); qrow.appendChild(addbtn);
-    card.appendChild(qrow);
-    res.appendChild(card);
-  });
+      products.slice(0,5).forEach(function(p){
+        var name=p.product_name+(p.brands?' ('+p.brands.split(',')[0].trim()+')':'');
+        if(name.length>60) name=name.substring(0,60)+'...';
+        var cal100=parseFloat(p.nutriments['energy-kcal_100g'])||0;
+        var prot100=parseFloat(p.nutriments['proteins_100g'])||0;
+        if(cal100>0) res.appendChild(buildFoodCard(name, cal100, prot100, 'Open Food Facts'));
+      });
+    })
+    .catch(function(){
+      label.textContent=localMatches.length>0?'Could not reach food database':'Search failed — check connection or enter manually';
+    });
 }
 
 function addFood(slotId,name,cal,prot){
